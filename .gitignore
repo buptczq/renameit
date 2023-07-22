@@ -1,0 +1,5 @@
+*.a
+*.o
+./tests/test
+./tests/rename_libs
+

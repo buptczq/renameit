@@ -1,0 +1,2 @@
+public_func
+public2_func
