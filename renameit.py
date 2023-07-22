@@ -18,6 +18,7 @@ USE_AR_EXTRACT = False
 
 # https://man.freebsd.org/cgi/man.cgi?query=ar&sektion=5&apropos=0&manpath=FreeBSD+13.0-RELEASE+and+Ports
 def extract_archive(archive_path, destination_path):
+    print "extract", archive_path
     archive = open(archive_path, 'rb')
 
     global_header = archive.read(8)
@@ -26,6 +27,7 @@ def extract_archive(archive_path, destination_path):
         exit(1)
 
     processed_files = dict()
+    namelist = ""
 
     count = 0
     while True:
@@ -45,10 +47,19 @@ def extract_archive(archive_path, destination_path):
             ar_file_name = ar_file_name_raw.decode()
             archive.seek(AR_FILE_START_OFFSET, SEEK_CUR)
         new_file_name = ""
-        if ar_file_name in ['/', '//', '__.SYMDEF']:
+        if ar_file_name in ['/', '__.SYMDEF', '__.SYMDEF_64']:
+            # symbol lookup table
             ar_file_name = ""
+        elif ar_file_name == '//':
+            # extended filenames
+            pass
         else:
-            ar_file_name = os.path.normpath(ar_file_name)
+            if ar_file_name.startswith('/'):
+                idx = int(ar_file_name[1:])
+                if idx < len(namelist):
+                    ar_file_name = namelist[idx:].split('\n')[0]
+            # System V ar uses a '/' character (0x2F) to mark the end of the filename
+            ar_file_name = os.path.normpath(ar_file_name.split('/')[0])
             if ar_file_name in processed_files:
                 filename, ext = os.path.splitext(ar_file_name)
                 new_file_name = "%s_%d%s" % (filename, processed_files[ar_file_name] + 1, ext)
@@ -57,7 +68,10 @@ def extract_archive(archive_path, destination_path):
                 new_file_name = ar_file_name
                 processed_files[ar_file_name] = 1
 
-        if new_file_name:
+        if ar_file_name == '//':
+            namelist = archive.read(ar_file_size)
+        elif new_file_name:
+            print new_file_name
             with open(os.path.join(destination_path, new_file_name), 'wb') as out:
                 out.write(archive.read(ar_file_size))
         else:

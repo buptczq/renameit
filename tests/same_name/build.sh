@@ -8,6 +8,6 @@ cd ..
 cd private2
 gcc -fPIC -c ./*.c
 cd ..
-ar -rc private.a ./private1/private.o ./private2/private.o
-ar -rc public.a public.o
+ar -rcs private.a ./private1/private.o ./private2/private.o
+ar -rcs public.a public.o
 
