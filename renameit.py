@@ -2,11 +2,71 @@
 import subprocess
 import argparse
 import os
+from io import SEEK_CUR
 from subprocess import check_output
 
 AR_PATH = "ar"
 NM_PATH = "nm"
 OBJCOPY_PATH = "objcopy"
+
+AR_FILE_NAME_SIZE = 16
+AR_SIZE_OFFSET = 32
+AR_SIZE_SIZE = 10
+AR_FILE_START_OFFSET = 2
+
+USE_AR_EXTRACT = False
+
+# https://man.freebsd.org/cgi/man.cgi?query=ar&sektion=5&apropos=0&manpath=FreeBSD+13.0-RELEASE+and+Ports
+def extract_archive(archive_path, destination_path):
+    archive = open(archive_path, 'rb')
+
+    global_header = archive.read(8)
+    if global_header != '!<arch>\n':
+        print(archive_path + ' seems not to be an archive file!')
+        exit(1)
+
+    processed_files = dict()
+
+    count = 0
+    while True:
+        count = count + 1
+        ar_file_name_bytes = archive.read(AR_FILE_NAME_SIZE)
+        if len(ar_file_name_bytes) == 0:
+            break
+        ar_file_name_raw = ar_file_name_bytes.rstrip(' ').decode()
+        archive.seek(AR_SIZE_OFFSET, SEEK_CUR)
+        ar_file_size = int(archive.read(AR_SIZE_SIZE).rstrip(' ').decode())
+        if ar_file_name_raw.startswith('#1/'):
+            file_name_size = int(ar_file_name_raw.replace('#1/', ''))
+            ar_file_size = ar_file_size - file_name_size
+            archive.seek(AR_FILE_START_OFFSET, SEEK_CUR)
+            ar_file_name = archive.read(file_name_size).rstrip(b'\x00').decode()
+        else:
+            ar_file_name = ar_file_name_raw.decode()
+            archive.seek(AR_FILE_START_OFFSET, SEEK_CUR)
+        new_file_name = ""
+        if ar_file_name in ['/', '//', '__.SYMDEF']:
+            ar_file_name = ""
+        else:
+            ar_file_name = os.path.normpath(ar_file_name)
+            if ar_file_name in processed_files:
+                filename, ext = os.path.splitext(ar_file_name)
+                new_file_name = "%s_%d%s" % (filename, processed_files[ar_file_name] + 1, ext)
+                processed_files[ar_file_name] = processed_files[ar_file_name] + 1
+            else:
+                new_file_name = ar_file_name
+                processed_files[ar_file_name] = 1
+
+        if new_file_name:
+            with open(os.path.join(destination_path, new_file_name), 'wb') as out:
+                out.write(archive.read(ar_file_size))
+        else:
+            archive.seek(ar_file_size, SEEK_CUR)
+
+        if archive.tell() % 2 == 1:
+            archive.read(1)
+
+    archive.close()
 
 class StaticLib(object):
     def __init__(self, filename, tmpdir):
@@ -20,7 +80,11 @@ class StaticLib(object):
         except OSError:
             pass
 
-        subprocess.check_call([AR_PATH, "x", os.path.realpath(filename)], cwd=self.objdir)
+        if USE_AR_EXTRACT:
+            subprocess.check_call([AR_PATH, "x", os.path.realpath(filename)], cwd=self.objdir)
+        else:
+            extract_archive(os.path.realpath(filename), self.objdir)
+
         self.objects = [obj for obj in os.listdir(self.objdir)]
         self.__load_symbols()
 
