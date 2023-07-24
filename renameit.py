@@ -180,7 +180,7 @@ if __name__ == "__main__":
                     all_symbols.add(realname)
                     all_symbols.add(sym)
             elif '@' in sym:
-                # default definition
+                # version definition
                 realname = sym.split('@')[0]
                 if realname not in export_symbols:
                     all_symbols.add(sym)
