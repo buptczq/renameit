@@ -172,7 +172,20 @@ if __name__ == "__main__":
     all_symbols = set()
     for lib in libs:
         print "Load", lib.filename
-        all_symbols.update(lib.symbols)
+        for sym in lib.symbols:
+            if '@@' in sym:
+                # default definition
+                realname = sym.split('@@')[0]
+                if realname not in export_symbols:
+                    all_symbols.add(realname)
+                    all_symbols.add(sym)
+            elif '@' in sym:
+                # default definition
+                realname = sym.split('@')[0]
+                if realname not in export_symbols:
+                    all_symbols.add(sym)
+            else:
+                all_symbols.add(sym)
     mapping_file = os.path.join(tmpdir, "rename.ld")
     with open(mapping_file, "wt") as fo:
         for symbol in sorted(all_symbols - export_symbols - custom_symbols):
