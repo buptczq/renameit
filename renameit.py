@@ -141,13 +141,13 @@ if __name__ == "__main__":
         description='Rename symbols in static libraries')
     parser.add_argument("--export", action="store", help="file of global symbols list", required=True)
     parser.add_argument("--custom", action="store", help="custom mapping file")
-    parser.add_argument("--lib", dest="libs", action="append", help="input static libraries")
     parser.add_argument("--output", action="store", help="output static librarie", required=True)
     parser.add_argument("--prefix", action="store", help="prefix of new symbols", default="rename")
     parser.add_argument("--tmp", action="store", help="tmpdir ", default="rename_libs")
     parser.add_argument("--ar", action="store", help="ar tool", default=AR_PATH)
     parser.add_argument("--nm", action="store", help="nm tool", default=NM_PATH)
     parser.add_argument("--objcopy", action="store", help="objcopy tool", default=OBJCOPY_PATH)
+    parser.add_argument("libs", nargs='+', help="input static libraries")
     args = parser.parse_args()
 
     tmpdir = args.tmp
